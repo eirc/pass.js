@@ -1,0 +1,49 @@
+body {
+    max-width: 800px;
+    margin: 20px auto;
+    color: #444444;
+}
+
+body,
+input,
+textarea {
+    font-family: Consolas, monaco, monospace;
+    font-size: 16px;
+    line-height: 1.3;
+}
+
+h1 {
+    font-size: 36px;
+    margin: 20px 0;
+}
+
+h2 {
+    font-size: 23px;
+    margin: 15px 0;
+}
+
+input,
+textarea {
+    padding: 5px;
+}
+
+.drop-area {
+    padding: 20px;
+    border: 3px dashed #444444;
+    text-align: center;
+}
+
+#private_key_drop_area,
+#encrypted_file_drop_area {
+    margin-bottom: 15px;
+}
+
+#decrypted_password {
+    display: block;
+    width: 100%;
+}
+
+#decrypted_data {
+    display: block;
+    width: 100%;
+}
