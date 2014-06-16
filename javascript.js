@@ -2,7 +2,7 @@
     // Read a binary gpg encrypted file to an openpgp Message.
     //
     // This should probably be part of the openpgp library. Currently they have a function for reading armored text
-    // (readArmored) but we want to be able to use gpg files (too). This is a subset of the readArmored function
+    // (Message#readArmored) but we want to be able to use gpg files (too). This is a subset of the readArmored function
     // excluding the dearmor part.
     //
     // TODO: Open an issue or pull request on them to support this
@@ -10,6 +10,40 @@
         var packetlist = new openpgp.packet.List();
         packetlist.read(binaryData);
         return new openpgp.message.Message(packetlist);
+    };
+
+    // Read a binary gpg private keyring file to one or more openpgp Keys.
+    //
+    // This should probably be part of the openpgp library. Currently they have a function for reading armored text
+    // (Key#readArmored) but we want to be able to use gpg files (too). This is a subset of the readArmored function
+    // excluding the dearmor part.
+    //
+    // TODO: Open an issue or pull request on them to support this
+    var readBinaryKey = function (binaryData) {
+        var result = {};
+        result.keys = [];
+        try {
+            var packetlist = new openpgp.packet.List();
+            packetlist.read(binaryData);
+            var keyIndex = packetlist.indexOfTag(openpgp.enums.packet.publicKey, openpgp.enums.packet.secretKey);
+            if (keyIndex.length === 0) {
+                throw new Error('No key packet found in armored text');
+            }
+            for (var i = 0; i < keyIndex.length; i++) {
+                var oneKeyList = packetlist.slice(keyIndex[i], keyIndex[i + 1]);
+                try {
+                    var newKey = new openpgp.key.Key(oneKeyList);
+                    result.keys.push(newKey);
+                } catch (e) {
+                    result.err = result.err || [];
+                    result.err.push(e);
+                }
+            }
+        } catch (e) {
+            result.err = result.err || [];
+            result.err.push(e);
+        }
+        return result;
     };
 
     // Page elements
@@ -94,7 +128,8 @@
         var fileReader = new FileReader();
         fileReader.onload = function (event) {
             // TODO: handle more than one keys in the keyfile
-            loadedPrivateKey = openpgp.key.readArmored(event.target.result).keys[0];
+            loadedPrivateKey = readBinaryKey(event.target.result).keys[0] ||
+                openpgp.key.readArmored(event.target.result).keys[0];
 
             if (loadedPrivateKey && loadedPrivateKey.primaryKey) {
                 if (loadedPrivateKey.primaryKey.isDecrypted) {
@@ -115,7 +150,7 @@
         // TODO: handle multiple key file drops
         var file = event.dataTransfer.files[0];
         privateKeyFilename.textContent = file.name;
-        fileReader.readAsText(file);
+        fileReader.readAsBinaryString(file);
     });
 
     keyPasswordInput.addEventListener('keydown', function (event) {
@@ -142,10 +177,18 @@
         fileReader.onload = function (event) {
             try {
                 loadedEncryptedFile = readBinaryMessage(event.target.result);
-                encryptedFileOkNotification.style.display = 'block';
             } catch (e) {
-                encryptedFileErrorNotification.style.display = 'block';
+                try {
+                    loadedEncryptedFile = openpgp.message.readArmored(event.target.result);
+                } catch (e) {
+                    encryptedFileErrorNotification.style.display = 'block';
+                }
             }
+
+            if (loadedEncryptedFile) {
+                encryptedFileOkNotification.style.display = 'block';
+            }
+
             decryptIfReady();
         };
 
