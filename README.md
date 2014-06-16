@@ -8,7 +8,7 @@ decrypt your passwords anywhere.
 
 ## Usage
 
-See [https://raw.github.com/eirc/pass.js/master/USAGE.md].
+See [USAGE.md](https://raw.github.com/eirc/pass.js/master/USAGE.md).
 
 ## Libraries
 
