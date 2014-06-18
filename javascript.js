@@ -66,7 +66,9 @@
         decryptedDataTextarea = document.getElementById('decrypted_data');
 
     // Local shared variables
-    var loadedPrivateKey,
+    var privateKeyFileReader = new FileReader(),
+        encryptedFileReader = new FileReader(),
+        loadedPrivateKey,
         loadedEncryptedFile;
 
     var decryptIfReady = function () {
@@ -120,36 +122,34 @@
         event.dataTransfer.dropEffect = 'copy';
     });
 
+    privateKeyFileReader.onload = function (event) {
+        // TODO: handle more than one keys in the keyfile
+        loadedPrivateKey = readBinaryKey(event.target.result).keys[0] ||
+            openpgp.key.readArmored(event.target.result).keys[0];
+
+        if (loadedPrivateKey && loadedPrivateKey.primaryKey) {
+            if (loadedPrivateKey.primaryKey.isDecrypted) {
+                keyPasswordArea.style.display = 'none';
+                privateKeyOkNotification.style.display = 'block';
+            } else {
+                keyPasswordArea.style.display = 'block';
+                privateKeyOkNotification.style.display = 'none';
+                keyPasswordInput.focus();
+            }
+        } else {
+            privateKeyErrorNotification.style.display = 'block';
+        }
+
+        decryptIfReady();
+    };
+
     var handlePrivateKeyFile = function (file) {
         loadedPrivateKey = null;
         keyPasswordArea.style.display = 'none';
         privateKeyOkNotification.style.display = 'none';
         privateKeyErrorNotification.style.display = 'none';
-
-        var fileReader = new FileReader();
-        fileReader.onload = function (event) {
-            // TODO: handle more than one keys in the keyfile
-            loadedPrivateKey = readBinaryKey(event.target.result).keys[0] ||
-                openpgp.key.readArmored(event.target.result).keys[0];
-
-            if (loadedPrivateKey && loadedPrivateKey.primaryKey) {
-                if (loadedPrivateKey.primaryKey.isDecrypted) {
-                    keyPasswordArea.style.display = 'none';
-                    privateKeyOkNotification.style.display = 'block';
-                } else {
-                    keyPasswordArea.style.display = 'block';
-                    privateKeyOkNotification.style.display = 'none';
-                    keyPasswordInput.focus();
-                }
-            } else {
-                privateKeyErrorNotification.style.display = 'block';
-            }
-
-            decryptIfReady();
-        };
-
         privateKeyFilename.textContent = file.name;
-        fileReader.readAsBinaryString(file);
+        privateKeyFileReader.readAsBinaryString(file);
     };
 
     privateKeyFileInput.addEventListener('drop', function (event) {
@@ -179,32 +179,30 @@
         }
     });
 
+    encryptedFileReader.onload = function (event) {
+        try {
+            loadedEncryptedFile = readBinaryMessage(event.target.result);
+        } catch (e) {
+            try {
+                loadedEncryptedFile = openpgp.message.readArmored(event.target.result);
+            } catch (e) {
+                encryptedFileErrorNotification.style.display = 'block';
+            }
+        }
+
+        if (loadedEncryptedFile) {
+            encryptedFileOkNotification.style.display = 'block';
+        }
+
+        decryptIfReady();
+    };
+
     var handleEncryptedFileFile = function (file) {
         loadedEncryptedFile = null;
         encryptedFileOkNotification.style.display = 'none';
         encryptedFileErrorNotification.style.display = 'none';
-
-        var fileReader = new FileReader();
-        fileReader.onload = function (event) {
-            try {
-                loadedEncryptedFile = readBinaryMessage(event.target.result);
-            } catch (e) {
-                try {
-                    loadedEncryptedFile = openpgp.message.readArmored(event.target.result);
-                } catch (e) {
-                    encryptedFileErrorNotification.style.display = 'block';
-                }
-            }
-
-            if (loadedEncryptedFile) {
-                encryptedFileOkNotification.style.display = 'block';
-            }
-
-            decryptIfReady();
-        };
-
         encryptedFileFilename.textContent = file.name;
-        fileReader.readAsBinaryString(file);
+        encryptedFileReader.readAsBinaryString(file);
     };
 
     encryptedFileFileInput.addEventListener('drop', function (event) {
