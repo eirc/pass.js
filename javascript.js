@@ -48,12 +48,14 @@
 
     // Page elements
     var privateKeyDropArea = document.getElementById('private_key_drop_area'),
+        privateKeyFileInput = document.getElementById('private_key_file_input'),
         keyPasswordArea = document.getElementById('key_password_area'),
         keyPasswordInput = document.getElementById('key_password'),
         privateKeyOkNotification = document.getElementById('private_key_ok_notification'),
         privateKeyFilename = document.getElementById('private_key_filename'),
         privateKeyErrorNotification = document.getElementById('private_key_error_notification'),
         encryptedFileDropArea = document.getElementById('encrypted_file_drop_area'),
+        encryptedFileFileInput = document.getElementById('encrypted_file_file_input'),
         encryptedFileOkNotification = document.getElementById('encrypted_file_ok_notification'),
         encryptedFileFilename = document.getElementById('encrypted_file_filename'),
         encryptedFileErrorNotification = document.getElementById('encrypted_file_error_notification'),
@@ -118,8 +120,7 @@
         event.dataTransfer.dropEffect = 'copy';
     });
 
-    privateKeyDropArea.addEventListener('drop', function (event) {
-        event.preventDefault();
+    var handlePrivateKeyFile = function (file) {
         loadedPrivateKey = null;
         keyPasswordArea.style.display = 'none';
         privateKeyOkNotification.style.display = 'none';
@@ -147,10 +148,21 @@
             decryptIfReady();
         };
 
-        // TODO: handle multiple key file drops
-        var file = event.dataTransfer.files[0];
         privateKeyFilename.textContent = file.name;
         fileReader.readAsBinaryString(file);
+    };
+
+    privateKeyFileInput.addEventListener('drop', function (event) {
+        event.stopPropagation();
+    });
+    privateKeyFileInput.addEventListener('change', function (event) {
+        // TODO: handle multiple key file drops
+        handlePrivateKeyFile(event.target.files[0]);
+    });
+    privateKeyDropArea.addEventListener('drop', function (event) {
+        event.preventDefault();
+        // TODO: handle multiple key file drops
+        handlePrivateKeyFile(event.dataTransfer.files[0]);
     });
 
     keyPasswordInput.addEventListener('keydown', function (event) {
@@ -167,8 +179,7 @@
         }
     });
 
-    encryptedFileDropArea.addEventListener('drop', function (event) {
-        event.preventDefault();
+    var handleEncryptedFileFile = function (file) {
         loadedEncryptedFile = null;
         encryptedFileOkNotification.style.display = 'none';
         encryptedFileErrorNotification.style.display = 'none';
@@ -192,9 +203,20 @@
             decryptIfReady();
         };
 
-        // TODO: handle multiple encrypted file drops
-        var file = event.dataTransfer.files[0];
         encryptedFileFilename.textContent = file.name;
         fileReader.readAsBinaryString(file);
+    };
+
+    encryptedFileFileInput.addEventListener('drop', function (event) {
+        event.stopPropagation();
+    });
+    encryptedFileFileInput.addEventListener('change', function (event) {
+        // TODO: handle multiple encrypted file drops
+        handleEncryptedFileFile(event.target.files[0]);
+    });
+    encryptedFileDropArea.addEventListener('drop', function (event) {
+        event.preventDefault();
+        // TODO: handle multiple encrypted file drops
+        handleEncryptedFileFile(event.dataTransfer.files[0]);
     });
 }());
