@@ -127,7 +127,7 @@
         loadedPrivateKey = readBinaryKey(event.target.result).keys[0] ||
             openpgp.key.readArmored(event.target.result).keys[0];
 
-        if (loadedPrivateKey && loadedPrivateKey.primaryKey) {
+        if (loadedPrivateKey && loadedPrivateKey.isPrivate() && loadedPrivateKey.primaryKey) {
             if (loadedPrivateKey.primaryKey.isDecrypted) {
                 keyPasswordArea.style.display = 'none';
                 privateKeyOkNotification.style.display = 'block';
