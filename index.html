@@ -7,17 +7,9 @@
 <body>
 <h1>pass.js</h1>
 
-<label id="private_key_drop_area" class="drop-area" for="private_key_file_input">
+<label id="private_key_drop_area" class="zone" for="private_key_file_input">
   <h2>Drop private key file here</h2>
   <input type="file" id="private_key_file_input" />
-
-  <div id="key_password_area" style="display: none">
-    <label for="key_password">Key is encrypted, enter password to decrypt it</label>
-
-    <div>
-      <input type="password" id="key_password"/>
-    </div>
-  </div>
 
   <div id="private_key_ok_notification" style="display: none">
     Private key "<span id="private_key_filename"></span>" loaded
@@ -28,7 +20,12 @@
   </div>
 </label>
 
-<label id="encrypted_file_drop_area" class="drop-area" for="encrypted_file_file_input">
+<div class="zone">
+  <h2>Loaded keys</h2>
+  <div id="loaded_keys"></div>
+</div>
+
+<label id="encrypted_file_drop_area" class="zone" for="encrypted_file_file_input">
   <h2>Drop encrypted file here</h2>
   <input type="file" id="encrypted_file_file_input" />
 
@@ -43,6 +40,10 @@
 
 <div id="decrypting_in_progress" style="display: none">
   <h2>Decrypting...</h2>
+</div>
+
+<div id="could_not_decrypt" style="display: none">
+  <h2>Could not decrypt</h2>
 </div>
 
 <div id="decrypted_password_area" style="display: none">

@@ -12,6 +12,21 @@
         return new openpgp.message.Message(packetlist);
     };
 
+    var readBinaryOrArmoredMessage = function (input) {
+        var message = null;
+
+        try {
+            message = readBinaryMessage(input);
+        } catch (e) {
+            try {
+                message = openpgp.message.readArmored(input);
+            } catch (e) {
+            }
+        }
+
+        return message;
+    };
+
     // Read a binary gpg private keyring file to one or more openpgp Keys.
     //
     // This should probably be part of the openpgp library. Currently they have a function for reading armored text
@@ -46,20 +61,30 @@
         return result;
     };
 
+    var readBinaryOrArmoredKey = function (input) {
+        var binaryResult = readBinaryKey(input),
+            armoredResult = openpgp.key.readArmored(input);
+
+        return {
+            keys: (binaryResult.keys || []).concat(armoredResult.keys),
+            err: (binaryResult.err || []).concat(armoredResult.err)
+        };
+    };
+
     // Page elements
     var privateKeyDropArea = document.getElementById('private_key_drop_area'),
         privateKeyFileInput = document.getElementById('private_key_file_input'),
-        keyPasswordArea = document.getElementById('key_password_area'),
-        keyPasswordInput = document.getElementById('key_password'),
         privateKeyOkNotification = document.getElementById('private_key_ok_notification'),
         privateKeyFilename = document.getElementById('private_key_filename'),
         privateKeyErrorNotification = document.getElementById('private_key_error_notification'),
+        loadedKeys = document.getElementById('loaded_keys'),
         encryptedFileDropArea = document.getElementById('encrypted_file_drop_area'),
         encryptedFileFileInput = document.getElementById('encrypted_file_file_input'),
         encryptedFileOkNotification = document.getElementById('encrypted_file_ok_notification'),
         encryptedFileFilename = document.getElementById('encrypted_file_filename'),
         encryptedFileErrorNotification = document.getElementById('encrypted_file_error_notification'),
         decryptingInProgress = document.getElementById('decrypting_in_progress'),
+        couldNotDecrypt = document.getElementById('could_not_decrypt'),
         decryptedPasswordArea = document.getElementById('decrypted_password_area'),
         decryptedPasswordInput = document.getElementById('decrypted_password'),
         decryptedDataArea = document.getElementById('decrypted_data_area'),
@@ -68,16 +93,90 @@
     // Local shared variables
     var privateKeyFileReader = new FileReader(),
         encryptedFileReader = new FileReader(),
-        loadedPrivateKey,
-        loadedEncryptedFile;
+        keyring = new openpgp.Keyring();
 
-    var decryptIfReady = function () {
+    var appendKeyToLoadedKeys = function (key) {
+        var keyContainer = document.createElement('div');
+        var lockedIcon = document.createElement('img');
+        var unlockedIcon = document.createElement('img');
+        var removeIcon = document.createElement('img');
+        var userId = document.createElement('span');
+        var keyPasswordContainer = document.createElement('div');
+        var keyPasswordField = document.createElement('input');
+
+        lockedIcon.alt = 'Lock';
+        lockedIcon.title = 'Key is locked';
+        lockedIcon.src = 'lock.png';
+        lockedIcon.style.display = 'none';
+        keyContainer.appendChild(lockedIcon);
+
+        unlockedIcon.alt = 'Unlock';
+        unlockedIcon.title = 'Key is unlocked';
+        unlockedIcon.src = 'unlock.png';
+        unlockedIcon.style.display = 'none';
+        keyContainer.appendChild(unlockedIcon);
+
+        removeIcon.alt = 'Remove';
+        removeIcon.title = 'Remove key';
+        removeIcon.src = 'remove.png';
+        removeIcon.style.cursor = 'pointer';
+        keyContainer.appendChild(removeIcon);
+
+        removeIcon.addEventListener('click', function (event) {
+            event.stopPropagation();
+            keyring.removeKeysForId(key.primaryKey.getKeyId().toHex());
+            keyring.store();
+            keyContainer.parentNode.removeChild(keyContainer);
+        });
+
+        if (key.primaryKey.isDecrypted) {
+            unlockedIcon.style.display = null;
+        } else {
+            lockedIcon.style.display = null;
+        }
+
+        userId.innerText = key.getUserIds();
+        keyContainer.appendChild(userId);
+
+        if (!key.primaryKey.isDecrypted) {
+            keyPasswordField.type = 'password';
+            keyPasswordField.addEventListener('keydown', function (event) {
+                if (event.keyCode === 13) {
+                    key.decrypt(keyPasswordField.value);
+
+                    if (key.primaryKey.isDecrypted) {
+                        keyContainer.removeChild(keyPasswordContainer);
+                        if (key.primaryKey.isDecrypted) {
+                            lockedIcon.style.display = 'none';
+                            unlockedIcon.style.display = null;
+                        }
+                    }
+
+                    keyPasswordField.value = '';
+                }
+            });
+
+            keyPasswordContainer.appendChild(keyPasswordField);
+            keyContainer.appendChild(keyPasswordContainer);
+        }
+
+        loadedKeys.appendChild(keyContainer);
+    };
+    keyring.getAllKeys().forEach(appendKeyToLoadedKeys);
+
+    var decryptFile = function (file) {
         decryptedPasswordInput.value = '';
         decryptedDataTextarea.value = '';
         decryptedPasswordArea.style.display = 'none';
         decryptedDataArea.style.display = 'none';
+        couldNotDecrypt.style.display = 'none';
 
-        if (loadedPrivateKey && loadedPrivateKey.primaryKey.isDecrypted && loadedEncryptedFile) {
+        var availableDecryptedKeys = keyring.privateKeys.keys.
+            filter(function (key) {
+                return key.primaryKey.isDecrypted;
+            });
+
+        if (availableDecryptedKeys.length > 0) {
             decryptingInProgress.style.display = 'block';
 
             // Wrap the slow decryption process in a timeout block so it won't block the browser,
@@ -85,28 +184,46 @@
             // The async worker API would be useful here but it cannot work with the file:// protocol due to browser
             // security restrictions and working with file:// is a hard requirement.
             setTimeout(function () {
-                var decryptedData = openpgp.decryptMessage(loadedPrivateKey, loadedEncryptedFile),
-                    decryptedPassword = decryptedData.split("\n")[0];
-
-                decryptingInProgress.style.display = 'none';
-
-                if (String(decryptedPassword).replace(/^\s+|\s+$/g, '') !== '') {
-                    decryptedPasswordInput.value = decryptedPassword;
-                    decryptedPasswordArea.style.display = 'block';
-                    decryptedPasswordInput.focus();
-                    if ('select' in decryptedPasswordInput) {
-                        decryptedPasswordInput.select();
-                    } else if ('setSelectionRange' in decryptedPasswordInput) {
-                        decryptedPasswordInput.setSelectionRange(0, decryptedPasswordInput.value.length);
+                var decrypted = availableDecryptedKeys.some(function (key) {
+                    var decryptedData = null;
+                    try {
+                        decryptedData = openpgp.decryptMessage(key, file);
+                    } catch (e) {
                     }
 
-                    if (String(decryptedData).replace(/^\s+|\s+$/g, '') !== decryptedPassword) {
+                    if (!decryptedData) {
+                        return false;
+                    }
+
+                    var decryptedPassword = decryptedData.split("\n")[0];
+
+                    decryptingInProgress.style.display = 'none';
+
+                    if (String(decryptedPassword).replace(/^\s+|\s+$/g, '') !== '') {
+                        decryptedPasswordInput.value = decryptedPassword;
+                        decryptedPasswordArea.style.display = 'block';
+                        decryptedPasswordInput.focus();
+                        if ('select' in decryptedPasswordInput) {
+                            decryptedPasswordInput.select();
+                        } else if ('setSelectionRange' in decryptedPasswordInput) {
+                            decryptedPasswordInput.setSelectionRange(0, decryptedPasswordInput.value.length);
+                        }
+
+                        if (String(decryptedData).replace(/^\s+|\s+$/g, '') !== decryptedPassword) {
+                            decryptedDataTextarea.value = decryptedData;
+                            decryptedDataArea.style.display = 'block';
+                        }
+                    } else {
                         decryptedDataTextarea.value = decryptedData;
                         decryptedDataArea.style.display = 'block';
                     }
-                } else {
-                    decryptedDataTextarea.value = decryptedData;
-                    decryptedDataArea.style.display = 'block';
+
+                    return true;
+                });
+
+                if (!decrypted) {
+                    decryptingInProgress.style.display = 'none';
+                    couldNotDecrypt.style.display = 'block';
                 }
             }, 10);
         }
@@ -123,29 +240,20 @@
     });
 
     privateKeyFileReader.onload = function (event) {
-        // TODO: handle more than one keys in the keyfile
-        loadedPrivateKey = readBinaryKey(event.target.result).keys[0] ||
-            openpgp.key.readArmored(event.target.result).keys[0];
-
-        if (loadedPrivateKey && loadedPrivateKey.isPrivate() && loadedPrivateKey.primaryKey) {
-            if (loadedPrivateKey.primaryKey.isDecrypted) {
-                keyPasswordArea.style.display = 'none';
-                privateKeyOkNotification.style.display = 'block';
-            } else {
-                keyPasswordArea.style.display = 'block';
-                privateKeyOkNotification.style.display = 'none';
-                keyPasswordInput.focus();
-            }
-        } else {
-            privateKeyErrorNotification.style.display = 'block';
-        }
-
-        decryptIfReady();
+        readBinaryOrArmoredKey(event.target.result).
+            keys.
+            filter(function (key) {
+                return key.isPrivate();
+            }).
+            forEach(function (key) {
+                keyring.privateKeys.importKey(key.armor());
+                keyring.store();
+                loadedKeys.innerHTML = '';
+                keyring.getAllKeys().forEach(appendKeyToLoadedKeys);
+            });
     };
 
     var handlePrivateKeyFile = function (file) {
-        loadedPrivateKey = null;
-        keyPasswordArea.style.display = 'none';
         privateKeyOkNotification.style.display = 'none';
         privateKeyErrorNotification.style.display = 'none';
         privateKeyFilename.textContent = file.name;
@@ -158,6 +266,7 @@
     privateKeyFileInput.addEventListener('change', function (event) {
         // TODO: handle multiple key file drops
         handlePrivateKeyFile(event.target.files[0]);
+        privateKeyFileInput.value = '';
     });
     privateKeyDropArea.addEventListener('drop', function (event) {
         event.preventDefault();
@@ -165,40 +274,18 @@
         handlePrivateKeyFile(event.dataTransfer.files[0]);
     });
 
-    keyPasswordInput.addEventListener('keydown', function (event) {
-        if (event.keyCode === 13) {
-            loadedPrivateKey.decrypt(keyPasswordInput.value);
-            keyPasswordInput.value = '';
-
-            if (loadedPrivateKey.primaryKey.isDecrypted) {
-                keyPasswordArea.style.display = 'none';
-                privateKeyOkNotification.style.display = 'block';
-            }
-
-            decryptIfReady();
-        }
-    });
-
     encryptedFileReader.onload = function (event) {
-        try {
-            loadedEncryptedFile = readBinaryMessage(event.target.result);
-        } catch (e) {
-            try {
-                loadedEncryptedFile = openpgp.message.readArmored(event.target.result);
-            } catch (e) {
-                encryptedFileErrorNotification.style.display = 'block';
-            }
-        }
+        var file = readBinaryOrArmoredMessage(event.target.result);
 
-        if (loadedEncryptedFile) {
+        if (file) {
             encryptedFileOkNotification.style.display = 'block';
+            decryptFile(file);
+        } else {
+            encryptedFileErrorNotification.style.display = 'block';
         }
-
-        decryptIfReady();
     };
 
     var handleEncryptedFileFile = function (file) {
-        loadedEncryptedFile = null;
         encryptedFileOkNotification.style.display = 'none';
         encryptedFileErrorNotification.style.display = 'none';
         encryptedFileFilename.textContent = file.name;
@@ -216,5 +303,6 @@
         event.preventDefault();
         // TODO: handle multiple encrypted file drops
         handleEncryptedFileFile(event.dataTransfer.files[0]);
+        privateKeyFileInput.value = '';
     });
 }());
