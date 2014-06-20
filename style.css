@@ -12,10 +12,6 @@ textarea {
     line-height: 1.3;
 }
 
-label {
-    cursor: pointer;
-}
-
 h1 {
     font-size: 36px;
     margin: 20px 0;
@@ -37,6 +33,20 @@ textarea {
     border: 3px dashed #444444;
     text-align: center;
     margin-bottom: 15px;
+}
+
+#private_key_drop_area,
+#encrypted_file_drop_area {
+    cursor: pointer;
+}
+
+.key-widget {
+    margin-top: 10px;
+}
+
+.key-widget-password-input {
+    display: block;
+    margin: 10px auto 0;
 }
 
 #decrypted_password {

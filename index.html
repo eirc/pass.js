@@ -7,9 +7,8 @@
 <body>
 <h1>pass.js</h1>
 
-<label id="private_key_drop_area" class="zone" for="private_key_file_input">
+<div id="private_key_drop_area" class="zone">
   <h2>Drop private key file here</h2>
-  <input type="file" id="private_key_file_input" />
 
   <div id="private_key_ok_notification" style="display: none">
     Private key "<span id="private_key_filename"></span>" loaded
@@ -18,16 +17,15 @@
   <div id="private_key_error_notification" style="display: none">
     File is probably not containing a valid OpenPGP private key
   </div>
-</label>
+</div>
 
 <div class="zone">
   <h2>Loaded keys</h2>
   <div id="loaded_keys"></div>
 </div>
 
-<label id="encrypted_file_drop_area" class="zone" for="encrypted_file_file_input">
+<div id="encrypted_file_drop_area" class="zone">
   <h2>Drop encrypted file here</h2>
-  <input type="file" id="encrypted_file_file_input" />
 
   <div id="encrypted_file_ok_notification" style="display: none">
     Encrypted file "<span id="encrypted_file_filename"></span>" loaded
@@ -36,7 +34,7 @@
   <div id="encrypted_file_error_notification" style="display: none">
     File is probably not containing a valid OpenPGP encrypted message
   </div>
-</label>
+</div>
 
 <div id="decrypting_in_progress" style="display: none">
   <h2>Decrypting...</h2>
@@ -58,6 +56,12 @@
 
 <script src="openpgp.min.js"></script>
 <script src="javascript/openpgpjs.js"></script>
-<script src="javascript/main.js"></script>
+<script src="javascript/ui.file-drop.js"></script>
+<script src="javascript/ui.key-widget.js"></script>
+<script src="javascript/ui.main.js"></script>
+<script src="javascript/app.js"></script>
+<script>
+  passJS.App.init();
+</script>
 </body>
 </html>
