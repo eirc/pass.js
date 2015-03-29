@@ -7,8 +7,8 @@
 <body>
 <h1>pass.js</h1>
 
-<label id="private_key_drop_area" class="drop-area" for="private_key_file_input">
-  <h2>Drop private key file here</h2>
+<div id="private_key_drop_area" class="drop-area">
+  <label for="private_key_file_input"><h2>Drop private key file here</h2></label>
   <input type="file" id="private_key_file_input" />
 
   <div id="key_password_area" style="display: none">
@@ -26,7 +26,7 @@
   <div id="private_key_error_notification" style="display: none">
     File is probably not containing a valid OpenPGP private key
   </div>
-</label>
+</div>
 
 <label id="encrypted_file_drop_area" class="drop-area" for="encrypted_file_file_input">
   <h2>Drop encrypted file here</h2>
